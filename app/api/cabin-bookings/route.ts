@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
         purpose,
         status: "PENDING",
       },
+      include: { cabin: true },
     })
 
     return NextResponse.json({ booking }, { status: 201 })
@@ -43,7 +44,10 @@ export async function GET() {
     }
 
     const bookings = await prisma.cabinBooking.findMany({
-      where: { userId: user.id },
+      where: {
+        userId: user.id,
+        // Show all bookings including cancelled ones
+      },
       include: { cabin: true },
       orderBy: { date: "desc" },
     })
