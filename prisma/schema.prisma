@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  LATE
+  EARLY_LEAVE
+}
+
+enum LeaveType {
+  SICK
+  CASUAL
+  ANNUAL
+  UNPAID
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum EventType {
+  HOLIDAY
+  MEETING
+  TRAINING
+  CELEBRATION
+  OTHER
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  passwordHash  String
+  role          Role     @default(EMPLOYEE)
+  department    String?
+  phone         String?
+  joiningDate   DateTime @default(now())
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  attendance     Attendance[]
+  leaveRequests  LeaveRequest[]
+  cabinBookings  CabinBooking[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Attendance {
+  id             String           @id @default(cuid())
+  userId         String
+  date           DateTime
+  checkIn        DateTime?
+  checkOut       DateTime?
+  breakTime      Int              @default(0) // in minutes
+  workingMinutes Int              @default(0)
+  status         AttendanceStatus @default(PRESENT)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+}
+
+model LeaveRequest {
+  id        String      @id @default(cuid())
+  userId    String
+  type      LeaveType
+  startDate DateTime
+  endDate   DateTime
+  reason    String      @db.Text
+  status    LeaveStatus @default(PENDING)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Cabin {
+  id              String   @id @default(cuid())
+  name            String
+  capacity        Int
+  openTime        String   // Format: "HH:MM"
+  closeTime       String   // Format: "HH:MM"
+  maxBookingHours Int      @default(8)
+  color           String   @default("#3b82f6")
+  description     String?  @db.Text // Added description field to match the form design
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  bookings CabinBooking[]
+
+  @@index([isActive])
+}
+
+model CabinBooking {
+  id        String        @id @default(cuid())
+  cabinId   String
+  userId    String
+  date      DateTime
+  startTime String        // Format: "HH:MM"
+  endTime   String        // Format: "HH:MM"
+  purpose   String        @db.Text
+  status    BookingStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  cabin Cabin @relation(fields: [cabinId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([cabinId])
+  @@index([userId])
+  @@index([date])
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  title       String
+  date        DateTime
+  type        EventType @default(OTHER)
+  color       String    @default("#3b82f6")
+  description String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([date])
+  @@index([type])
+}
