@@ -5,6 +5,7 @@ import { verifyToken } from "@/lib/auth"
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const token = request.cookies.get("token")?.value
+    console.log("request.cookies----------->", request.cookies)
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

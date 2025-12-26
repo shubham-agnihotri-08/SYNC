@@ -7,8 +7,11 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { formatTime, getInitials } from "@/lib/utils"
-import { Clock, Search, Filter, Eye } from "lucide-react"
+import { Clock, Search, Eye } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { AttendanceDetailDialog } from "@/components/attendance-detail-dialog"
+import { AttendanceFilterPopover } from "@/components/attendance-filter-popover"
+import Link from "next/link"
 
 interface Cabin {
   id: string
@@ -54,6 +57,10 @@ export default function AdminDashboardPage() {
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const { toast } = useToast()
+  const [statusFilter, setStatusFilter] = useState("ALL")
+  const [departmentFilter, setDepartmentFilter] = useState("ALL")
+  const [selectedAttendance, setSelectedAttendance] = useState<any>(null)
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -114,7 +121,27 @@ export default function AdminDashboardPage() {
     }
   }
 
-  const filteredAttendance = attendance.filter((att) => att.user.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredAttendance = attendance.filter((att) => {
+    const matchesSearch = att.user.name.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesStatus = statusFilter === "ALL" || att.status === statusFilter
+    const matchesDepartment = departmentFilter === "ALL" || att.user.department === departmentFilter
+    return matchesSearch && matchesStatus && matchesDepartment
+  })
+
+  const departments = Array.from(new Set(attendance.map((att) => att.user.department).filter(Boolean))) as string[]
+
+  const handleViewAttendance = async (id: string) => {
+    try {
+      const response = await fetch(`/api/attendance/${id}`)
+      if (response.ok) {
+        const data = await response.json()
+        setSelectedAttendance(data.attendance)
+        setDetailDialogOpen(true)
+      }
+    } catch (error) {
+      console.error("Error fetching attendance details:", error)
+    }
+  }
 
   return (
     <div className="space-y-6 p-6">
@@ -167,9 +194,13 @@ export default function AdminDashboardPage() {
                   className="pl-9"
                 />
               </div>
-              <Button variant="outline" size="icon">
-                <Filter className="h-4 w-4" />
-              </Button>
+              <AttendanceFilterPopover
+                statusFilter={statusFilter}
+                departmentFilter={departmentFilter}
+                onStatusChange={setStatusFilter}
+                onDepartmentChange={setDepartmentFilter}
+                departments={departments}
+              />
             </div>
 
             <div className="overflow-x-auto">
@@ -213,7 +244,12 @@ export default function AdminDashboardPage() {
                         </Badge>
                       </td>
                       <td className="py-3">
-                        <Button variant="ghost" size="sm" className="gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => handleViewAttendance(record.id)}
+                        >
                           <Eye className="h-4 w-4" />
                           View
                         </Button>
@@ -231,9 +267,11 @@ export default function AdminDashboardPage() {
             <CardContent className="pt-6">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="font-semibold">Leave Request</h3>
-                <Button variant="link" size="sm" className="h-auto p-0">
-                  View All
-                </Button>
+                <Link href="/admin/leave-requests">
+                  <Button variant="link" size="sm" className="h-auto p-0">
+                    View All
+                  </Button>
+                </Link>
               </div>
               {leaveRequests.map((request) => (
                 <div key={request.id} className="space-y-3">
@@ -273,9 +311,11 @@ export default function AdminDashboardPage() {
             <CardContent className="pt-6">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="font-semibold">Sick leave</h3>
-                <Button variant="link" size="sm" className="h-auto p-0">
-                  View All
-                </Button>
+                <Link href="/admin/sick-leaves">
+                  <Button variant="link" size="sm" className="h-auto p-0">
+                    View All
+                  </Button>
+                </Link>
               </div>
               {sickLeaves.map((request) => (
                 <div key={request.id} className="space-y-3">
@@ -315,9 +355,11 @@ export default function AdminDashboardPage() {
             <CardContent className="pt-6">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="font-semibold">Upcoming Events</h3>
-                <Button variant="link" size="sm" className="h-auto p-0">
-                  View All
-                </Button>
+                <Link href="/admin/upcoming-events">
+                  <Button variant="link" size="sm" className="h-auto p-0">
+                    View All
+                  </Button>
+                </Link>
               </div>
               <div className="space-y-3">
                 {upcomingEvents.map((event) => (
@@ -339,6 +381,12 @@ export default function AdminDashboardPage() {
           </Card>
         </div>
       </div>
+
+      <AttendanceDetailDialog
+        open={detailDialogOpen}
+        onOpenChange={setDetailDialogOpen}
+        attendance={selectedAttendance}
+      />
     </div>
   )
 }
