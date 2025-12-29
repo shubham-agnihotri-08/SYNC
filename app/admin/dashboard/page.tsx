@@ -131,15 +131,30 @@ export default function AdminDashboardPage() {
   const departments = Array.from(new Set(attendance.map((att) => att.user.department).filter(Boolean))) as string[]
 
   const handleViewAttendance = async (id: string) => {
+    console.log("[v0] View button clicked for attendance ID:", id)
     try {
       const response = await fetch(`/api/attendance/${id}`)
+      console.log("[v0] API response status:", response.status)
       if (response.ok) {
         const data = await response.json()
+        console.log("[v0] Attendance data received:", data)
         setSelectedAttendance(data.attendance)
         setDetailDialogOpen(true)
+      } else {
+        console.error("[v0] Failed to fetch attendance:", response.statusText)
+        toast({
+          title: "Error",
+          description: "Failed to load attendance details",
+          variant: "destructive",
+        })
       }
     } catch (error) {
-      console.error("Error fetching attendance details:", error)
+      console.error("[v0] Error fetching attendance details:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load attendance details",
+        variant: "destructive",
+      })
     }
   }
 
@@ -247,8 +262,11 @@ export default function AdminDashboardPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="gap-2"
-                          onClick={() => handleViewAttendance(record.id)}
+                          className="gap-2 hover:bg-accent"
+                          onClick={() => {
+                            console.log("[v0] Button clicked for record:", record.id)
+                            handleViewAttendance(record.id)
+                          }}
                         >
                           <Eye className="h-4 w-4" />
                           View

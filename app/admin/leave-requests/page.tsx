@@ -147,14 +147,14 @@ export default function LeaveRequestsPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-red-600 hover:bg-red-50 bg-transparent"
+                        className="text-red-600 hover:bg-red-50 hover:text-red-700 border-red-200 bg-transparent"
                         onClick={() => handleAction(request.id, "REJECTED")}
                       >
                         Reject
                       </Button>
                       <Button
                         size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-700"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
                         onClick={() => handleAction(request.id, "APPROVED")}
                       >
                         Approve
