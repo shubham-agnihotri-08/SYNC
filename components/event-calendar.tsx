@@ -1,10 +1,21 @@
 "use client"
 
-import type { Event } from "@prisma/client"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useState } from "react"
+
+interface Event {
+  id: string
+  title: string
+  date: Date | string
+  startTime: string
+  endTime: string
+  type: string
+  color: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
 
 interface EventCalendarProps {
   events: Event[]

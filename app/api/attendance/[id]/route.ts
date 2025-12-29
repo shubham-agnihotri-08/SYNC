@@ -1,20 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
-export async function GET(request: NextRequest,  context: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-     const { id } = await context.params ;
-    if (!id) {
-      return NextResponse.json({ error: "Missing attendance request ID" }, { status: 400 })
-    }
-
-    const token = request.cookies.get("auth-token")?.value
+    const token = request.cookies.get("token")?.value
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const attendance = await prisma.attendance.findUnique({
-      where: { id:id},
+      where: { id: params.id },
       include: { user: true },
     })
 

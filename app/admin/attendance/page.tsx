@@ -7,9 +7,12 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { getInitials, formatTime } from "@/lib/utils"
-import { Search, Filter, Eye, TrendingUp } from "lucide-react"
+import { Search, Eye, TrendingUp } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { AttendanceFilterPopover } from "@/components/attendance-filter-popover"
+import { AttendanceDetailDialog } from "@/components/attendance-detail-dialog"
+import { AddEmployeeDialog } from "@/components/add-employee-dialog"
 
 interface Attendance {
   id: string
@@ -44,8 +47,20 @@ export default function AttendancePage() {
   const [filteredAttendance, setFilteredAttendance] = useState<Attendance[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [stats, setStats] = useState({ totalEmployees: 0, onLeave: 0 })
+  const [stats, setStats] = useState({
+    totalEmployees: 0,
+    onLeave: 0,
+    totalEmployeesPercentage: "0%",
+    onLeavePercentage: "0%",
+  })
+  const [statusFilter, setStatusFilter] = useState("ALL")
+  const [departmentFilter, setDepartmentFilter] = useState("ALL")
+  const [departments, setDepartments] = useState<string[]>([])
+  const [selectedAttendance, setSelectedAttendance] = useState<any>(null)
+  const [showDetailDialog, setShowDetailDialog] = useState(false)
+  const [showAddEmployeeDialog, setShowAddEmployeeDialog] = useState(false)
   const { toast } = useToast()
+  const router = useRouter()
 
   useEffect(() => {
     fetchData()
@@ -53,19 +68,25 @@ export default function AttendancePage() {
 
   useEffect(() => {
     filterAttendance()
-  }, [searchQuery, attendance])
+  }, [searchQuery, attendance, statusFilter, departmentFilter])
 
   const fetchData = async () => {
     try {
-      const [attendanceRes, leaveRes, employeesRes] = await Promise.all([
+      const [attendanceRes, leaveRes, statsRes] = await Promise.all([
         fetch("/api/attendance"),
         fetch("/api/leave-requests"),
-        fetch("/api/employees"),
+        fetch("/api/attendance/stats"),
       ])
 
       if (attendanceRes.ok) {
         const data = await attendanceRes.json()
-        setAttendance(data.attendance || [])
+        const attendanceData = data.attendance || []
+        setAttendance(attendanceData)
+
+        const uniqueDepts = Array.from(
+          new Set(attendanceData.map((a: Attendance) => a.user.department).filter(Boolean)),
+        ) as string[]
+        setDepartments(uniqueDepts)
       }
 
       if (leaveRes.ok) {
@@ -75,11 +96,13 @@ export default function AttendancePage() {
         setSickLeaves(leaves.filter((l: LeaveRequest) => l.status === "PENDING" && l.type === "SICK"))
       }
 
-      if (employeesRes.ok) {
-        const data = await employeesRes.json()
+      if (statsRes.ok) {
+        const data = await statsRes.json()
         setStats({
-          totalEmployees: data.employees?.length || 0,
-          onLeave: data.employees?.filter((e: any) => e.isActive === false).length || 0,
+          totalEmployees: data.totalEmployees,
+          onLeave: data.onLeave,
+          totalEmployeesPercentage: data.totalEmployeesPercentage,
+          onLeavePercentage: data.onLeavePercentage,
         })
       }
     } catch (error) {
@@ -98,6 +121,14 @@ export default function AttendancePage() {
           att.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           att.user.employeeId.toLowerCase().includes(searchQuery.toLowerCase()),
       )
+    }
+
+    if (statusFilter !== "ALL") {
+      filtered = filtered.filter((att) => att.status === statusFilter)
+    }
+
+    if (departmentFilter !== "ALL") {
+      filtered = filtered.filter((att) => att.user.department === departmentFilter)
     }
 
     setFilteredAttendance(filtered)
@@ -123,6 +154,24 @@ export default function AttendancePage() {
       toast({
         title: "Error",
         description: "Failed to update leave request",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleViewAttendance = async (id: string) => {
+    try {
+      const response = await fetch(`/api/attendance/${id}`)
+      if (response.ok) {
+        const data = await response.json()
+        setSelectedAttendance(data)
+        setShowDetailDialog(true)
+      }
+    } catch (error) {
+      console.error("Error fetching attendance details:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load attendance details",
         variant: "destructive",
       })
     }
@@ -156,9 +205,7 @@ export default function AttendancePage() {
           <h1 className="text-3xl font-bold">Attendance</h1>
           <p className="text-muted-foreground">Monitor Employee Status and Work History</p>
         </div>
-        <Link href="/admin/employees">
-          <Button>+ New Employee</Button>
-        </Link>
+        <Button onClick={() => setShowAddEmployeeDialog(true)}>+ New Employee</Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -184,7 +231,7 @@ export default function AttendancePage() {
                 </div>
                 <div className="mt-2 flex items-center gap-1 text-sm text-emerald-600">
                   <TrendingUp className="h-3 w-3" />
-                  <span>8.5% from yesterday</span>
+                  <span>{stats.totalEmployeesPercentage} from yesterday</span>
                 </div>
               </div>
             </div>
@@ -213,7 +260,7 @@ export default function AttendancePage() {
                 </div>
                 <div className="mt-2 flex items-center gap-1 text-sm text-emerald-600">
                   <TrendingUp className="h-3 w-3" />
-                  <span>8.5% from yesterday</span>
+                  <span>{stats.onLeavePercentage} from yesterday</span>
                 </div>
               </div>
             </div>
@@ -226,7 +273,7 @@ export default function AttendancePage() {
           <CardContent className="pt-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Leave Request</h3>
-              <Button variant="link" size="sm">
+              <Button variant="link" size="sm" onClick={() => router.push("/admin/leave-requests")}>
                 View All
               </Button>
             </div>
@@ -270,7 +317,7 @@ export default function AttendancePage() {
           <CardContent className="pt-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Sick leave</h3>
-              <Button variant="link" size="sm">
+              <Button variant="link" size="sm" onClick={() => router.push("/admin/sick-leaves")}>
                 View All
               </Button>
             </div>
@@ -323,9 +370,13 @@ export default function AttendancePage() {
                 className="pl-9"
               />
             </div>
-            <Button variant="outline" size="icon">
-              <Filter className="h-4 w-4" />
-            </Button>
+            <AttendanceFilterPopover
+              statusFilter={statusFilter}
+              departmentFilter={departmentFilter}
+              onStatusChange={setStatusFilter}
+              onDepartmentChange={setDepartmentFilter}
+              departments={departments}
+            />
           </div>
 
           <h3 className="mb-4 text-lg font-semibold">Attendance</h3>
@@ -365,7 +416,12 @@ export default function AttendancePage() {
                     </td>
                     <td className="py-4">{record.workingHours || "0h"}</td>
                     <td className="py-4">
-                      <Button variant="ghost" size="sm" className="gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => handleViewAttendance(record.id)}
+                      >
                         <Eye className="h-4 w-4" />
                         View
                       </Button>
@@ -377,6 +433,14 @@ export default function AttendancePage() {
           </div>
         </CardContent>
       </Card>
+
+      <AttendanceDetailDialog
+        open={showDetailDialog}
+        onOpenChange={setShowDetailDialog}
+        attendance={selectedAttendance}
+      />
+
+      <AddEmployeeDialog open={showAddEmployeeDialog} onOpenChange={setShowAddEmployeeDialog} onSuccess={fetchData} />
     </div>
   )
 }
